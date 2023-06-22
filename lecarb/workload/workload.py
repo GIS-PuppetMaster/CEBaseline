@@ -46,6 +46,30 @@ def query_2_triple(query: Query, with_none: bool=True, split_range: bool=False
             vals.append(None)
     return cols, ops, vals
 
+def pkl_2_query(pkl_query: List[List[List, List, List, List]], table:Table):
+    queries = []
+    true_cards = []
+    for i, (cols, ops, vals, true_card) in enumerate(pkl_query):
+        ncols = len(cols)
+        true_card.append(Label(cardinality=true_card, selectivity=true_card/table.data.shape[0]))
+        predicates = {}
+        cols = np.array(cols)
+        ops = np.array(ops)
+        vals = np.array(vals)
+        for col, op, val in zip(cols, ops, vals):
+            if op == [None, None]:
+                predicates[col] = None
+            elif op[0] == '=':
+                assert op[1] is None
+                predicates[col] = ['=', val[0]]
+            else:
+                assert op[0] not in ['>','<'], 'not support >,<'
+                val_greater_eq = val[np.where(op=='>=')[0].item()]
+                val_less_eq = val[np.where(op=='<=')[0].item()]
+                predicates[col] = ['[]', [val_greater_eq, val_less_eq]]
+        queries.append(Query(predicates=predicates, ncols=ncols))
+    return queries, true_cards
+
 def query_2_sql(query: Query, table: Table, aggregate=True, split=False, dbms='postgres'):
     preds = []
     for col, pred in query.predicates.items():
